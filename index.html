@@ -16,8 +16,6 @@
       --shadow: 0 25px 70px rgba(30,10,20,.20);
       --stroke: rgba(80,30,50,.14);
       --radius: 22px;
-
-
     }
 
     *{box-sizing:border-box}
@@ -139,6 +137,10 @@
       overflow:hidden;
       cursor: default;
       touch-action: manipulation;
+
+      /* ✅ Make layout stable on mobile */
+      display:flex;
+      flex-direction:column;
     }
 
     .pageCurl{
@@ -178,6 +180,7 @@
       pointer-events:none;
     }
 
+    /* ✅ Content becomes scrollable, footer stays visible */
     .pad{
       padding: 22px;
       height:100%;
@@ -185,12 +188,16 @@
       flex-direction:column;
       gap:14px;
       position:relative;
+      overflow:auto; /* ✅ allows scroll if tall */
+      -webkit-overflow-scrolling: touch;
     }
+
     .topRow{
       display:flex;
       justify-content:space-between;
       align-items:center;
       gap:12px;
+      flex-wrap:wrap;
     }
     .badge{
       font-size:12px;
@@ -273,6 +280,11 @@
       border-radius: 18px;
       font-size: 16px;
     }
+    .btn[disabled]{
+      opacity:.6;
+      cursor:not-allowed;
+      transform:none !important;
+    }
 
     input[type="time"], input[type="text"]{
       width:100%;
@@ -301,7 +313,7 @@
 
     @media (max-width: 520px){
       .stage{ padding: 12px; align-items:flex-start; }
-      .bookShell{ height: min(760px, 92svh); }
+      .bookShell{ height: min(820px, 92svh); }
       .page{ inset: 10px; }
       .pad{ padding: 16px; gap: 12px; }
       .btn{ font-size: 15px; }
@@ -377,12 +389,12 @@
     }
 
     .page2Art{
-  background-color: #fff6fb;
-  background-image:
-    radial-gradient(900px 600px at 20% 10%, rgba(255,255,255,.92), transparent 55%),
-    radial-gradient(900px 700px at 80% 60%, rgba(255,90,164,.12), transparent 60%);
-}
+      background-color: #fff6fb;
+      background-image:
+        radial-gradient(900px 600px at 20% 10%, rgba(255,255,255,.92), transparent 55%),
+        radial-gradient(900px 700px at 80% 60%, rgba(255,90,164,.12), transparent 60%);
     }
+
     .glass{
       border-radius: 18px;
       border:1px solid rgba(120,50,80,.16);
@@ -430,7 +442,9 @@
       gap:12px;
       align-items:start;
     }
-    @media (max-width:720px){ .selfieZone{grid-template-columns:1fr;} }
+    @media (max-width:720px){
+      .selfieZone{grid-template-columns:1fr;}
+    }
 
     .preview{
       width:100%;
@@ -449,13 +463,21 @@
     }
     .preview img{ width:100%; height:100%; object-fit:cover; display:block; }
 
+    /* ✅ Sticky bottom nav (fixes “Next” hidden on mobile) */
     .footerNav{
       margin-top:auto;
       display:grid;
       grid-template-columns: auto 1fr auto;
       align-items:center;
       gap:12px;
-      padding-top: 10px;
+
+      position: sticky;
+      bottom: 0;
+      z-index: 200;
+
+      padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(255,247,251,0), rgba(255,247,251,.92) 40%, rgba(255,247,251,.96));
+      backdrop-filter: blur(10px);
     }
     .footerNav .leftNav{ justify-self:start; }
     .footerNav .midNav{ justify-self:center; text-align:center; }
@@ -511,7 +533,7 @@
       padding: 18px;
       opacity:0;
       pointer-events:none;
-      transition: opacity .35s ease;
+      transition: opacity .25s ease;
       z-index: 300;
     }
     .finalOverlay.show{
@@ -538,11 +560,80 @@
       font-weight: 800;
       line-height: 1.5;
     }
+
+    /* ✅ Custom camera overlay (fixes black camera in many cases) */
+    .cameraOverlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.92);
+      display: none;
+      z-index: 2000;
+      padding: 16px;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+    .cameraOverlay.show{ display:flex; flex-direction:column; gap:12px; }
+    .cameraTop{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      color:#fff;
+      font-weight:900;
+    }
+    .cameraView{
+      flex: 1;
+      border-radius: 18px;
+      overflow:hidden;
+      border: 1px solid rgba(255,255,255,.18);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#000;
+    }
+    .cameraView video{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      transform: scaleX(-1); /* mirror selfie */
+    }
+    .cameraBottom{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+    .cameraHint{
+      color: rgba(255,255,255,.75);
+      font-size: 12.5px;
+      text-align:center;
+      font-weight:800;
+    }
   </style>
 </head>
 
 <body>
   <div class="floaties" aria-hidden="true" id="floaties"></div>
+
+  <!-- ✅ Camera overlay -->
+  <div class="cameraOverlay" id="cameraOverlay" aria-hidden="true">
+    <div class="cameraTop">
+      <div>Camera 📸</div>
+      <button class="btn secondary" id="closeCamera" type="button">Close</button>
+    </div>
+
+    <div class="cameraView">
+      <video id="cameraVideo" playsinline autoplay muted></video>
+    </div>
+
+    <div class="cameraHint">
+      If this doesn’t work in WhatsApp browser, open the link in Safari/Chrome.
+    </div>
+
+    <div class="cameraBottom">
+      <button class="btn" id="takePhoto" type="button">Take Photo ✅</button>
+      <button class="btn ghost" id="switchCam" type="button">Switch Camera 🔁</button>
+    </div>
+  </div>
 
   <div class="stage">
     <div class="bookShell">
@@ -806,7 +897,7 @@
                 <div class="glass">
                   <label>Open camera (required)</label>
 
-                  <input id="selfie" type="file" accept="image/*" capture="user" style="display:none;" />
+                  <input id="selfie" type="file" accept="image/*" style="display:none;" />
 
                   <div class="row" style="margin-top:10px;">
                     <button class="btn" id="openCameraBtn" type="button">Open Camera 📸</button>
@@ -871,7 +962,7 @@
               <div class="finalOverlay" id="finalOverlay">
                 <div class="finalCard">
                   <h2>Okay… it’s a date 💗</h2>
-                  <p id="finalCuteLine">See you then 😌🌸</p>
+                  <p id="finalCuteLine">Saving… 😌🌸</p>
                 </div>
               </div>
 
@@ -899,7 +990,7 @@
   <script>
     const FROM_NAME = "Arpan";
 
-    // ✅ Your Web App URL (filled by you)
+    // ✅ Your Web App URL
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwOMYPPplfJdg-xK1TzUHI9o1KDA-_2QNJp1XxjwHaABGkTeZuqBXZT0ZU33WkelqFD/exec";
 
     const pages = Array.from(document.querySelectorAll(".page"))
@@ -916,7 +1007,6 @@
     let extraNote = "";
     let food = "";
 
-    let selfieFile = null;
     let selfieDataUrl = "";
     let selfieName = "";
 
@@ -1106,12 +1196,12 @@
       });
     }
 
-    // ✅ Tiny image compressor
+    // ✅ Tiny image compressor (slightly stronger for faster upload)
     async function compressToDataUrl(file, opts){
       opts = opts || {};
-      const maxW = opts.maxW || 1280;
-      const maxH = opts.maxH || 1280;
-      const quality = (opts.quality != null) ? opts.quality : 0.75;
+      const maxW = opts.maxW || 900;
+      const maxH = opts.maxH || 900;
+      const quality = (opts.quality != null) ? opts.quality : 0.68;
 
       const img = await new Promise((resolve, reject)=>{
         const i = new Image();
@@ -1137,13 +1227,87 @@
       return canvas.toDataURL("image/jpeg", quality);
     }
 
+    // ✅ Camera overlay (getUserMedia) + fallback to file input
+    const cameraOverlay = document.getElementById("cameraOverlay");
+    const cameraVideo = document.getElementById("cameraVideo");
+    const closeCamera = document.getElementById("closeCamera");
+    const takePhoto = document.getElementById("takePhoto");
+    const switchCam = document.getElementById("switchCam");
+
+    let cameraStream = null;
+    let facingMode = "user";
+
+    async function startCamera(){
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        throw new Error("getUserMedia not supported");
+      }
+
+      if(cameraStream){
+        cameraStream.getTracks().forEach(t=>t.stop());
+        cameraStream = null;
+      }
+
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facingMode },
+        audio: false
+      });
+
+      cameraVideo.srcObject = cameraStream;
+      cameraOverlay.classList.add("show");
+      cameraOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    function stopCamera(){
+      if(cameraStream){
+        cameraStream.getTracks().forEach(t=>t.stop());
+        cameraStream = null;
+      }
+      cameraVideo.srcObject = null;
+      cameraOverlay.classList.remove("show");
+      cameraOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    function captureFromVideo(){
+      const v = cameraVideo;
+      const w = v.videoWidth || 640;
+      const h = v.videoHeight || 480;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext("2d");
+      // mirror back to normal selfie
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(v, 0, 0, w, h);
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+      selfieDataUrl = dataUrl;
+      selfieName = "selfie_" + Date.now() + ".jpg";
+      if(preview) preview.innerHTML = '<img alt="Selfie preview" src="' + dataUrl + '">';
+      showToast("Selfie ready ✅");
+      updateDynamicText();
+    }
+
     const openCameraBtn = document.getElementById("openCameraBtn");
     const openGalleryBtn = document.getElementById("openGalleryBtn");
 
     if(openCameraBtn){
-      openCameraBtn.addEventListener("click", (e)=>{
+      openCameraBtn.addEventListener("click", async (e)=>{
         e.stopPropagation();
-        if(selfie) selfie.click();
+
+        // Try overlay camera first (fixes black screen in many cases)
+        try{
+          await startCamera();
+        } catch(err){
+          // Fallback to file input camera (may still be black in WhatsApp)
+          showToast("Camera fallback 📸");
+          if(selfie){
+            selfie.setAttribute("capture", "user");
+            selfie.click();
+          }
+        }
       });
     }
 
@@ -1151,17 +1315,45 @@
       openGalleryBtn.addEventListener("click", (e)=>{
         e.stopPropagation();
         if(!selfie) return;
-        const old = selfie.getAttribute("capture");
         selfie.removeAttribute("capture");
         selfie.click();
-        if(old) selfie.setAttribute("capture", old);
+      });
+    }
+
+    if(closeCamera){
+      closeCamera.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        stopCamera();
+      });
+    }
+
+    if(takePhoto){
+      takePhoto.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        try{
+          captureFromVideo();
+          stopCamera();
+        } catch {
+          showToast("Capture failed 😅");
+        }
+      });
+    }
+
+    if(switchCam){
+      switchCam.addEventListener("click", async (e)=>{
+        e.stopPropagation();
+        facingMode = (facingMode === "user") ? "environment" : "user";
+        try{
+          await startCamera();
+        } catch {
+          showToast("Switch failed 😅");
+        }
       });
     }
 
     if(selfie){
       selfie.addEventListener("change", async ()=>{
         const f = selfie.files && selfie.files[0];
-        selfieFile = f || null;
 
         if(!f){
           selfieDataUrl = "";
@@ -1175,10 +1367,9 @@
         showToast("Compressing… 💗");
 
         try{
-          const dataUrl = await compressToDataUrl(f, { maxW: 1280, maxH: 1280, quality: 0.75 });
+          const dataUrl = await compressToDataUrl(f, { maxW: 900, maxH: 900, quality: 0.68 });
           selfieDataUrl = dataUrl;
           selfieName = "selfie_" + Date.now() + ".jpg";
-
           if(preview) preview.innerHTML = '<img alt="Selfie preview" src="' + dataUrl + '">';
           showToast("Selfie ready ✅");
           updateDynamicText();
@@ -1204,13 +1395,22 @@
       });
     }
 
-    // ✅ Save to Sheets + overlay
+    // ✅ Save to Sheets + overlay (overlay shows instantly now)
     const letsGoBtn = document.getElementById("letsGo");
     if(letsGoBtn){
       letsGoBtn.addEventListener("click", async function(e){
         e.stopPropagation();
 
-        var payload = {
+        const overlay = document.getElementById("finalOverlay");
+        const line = document.getElementById("finalCuteLine");
+
+        // ✅ show popup instantly (fixes long wait)
+        if(line) line.textContent = "Saving… 😌🌸";
+        if(overlay) overlay.classList.add("show");
+
+        letsGoBtn.disabled = true;
+
+        const payload = {
           answer: hangoutYes === true ? "Yes" : (hangoutYes === false ? "No" : ""),
           day: day || "",
           time: time || "",
@@ -1221,44 +1421,48 @@
           selfieName: selfieName || ""
         };
 
-        // Important: use text/plain to avoid CORS preflight headaches in many cases
-      try{
-  const res = await fetch(WEB_APP_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
-  });
+        // timeout so it doesn't feel stuck forever
+        const controller = new AbortController();
+        const t = setTimeout(()=> controller.abort(), 12000);
 
-  const out = await res.json().catch(()=>null);
-  console.log("Apps Script reply:", out);
+        try{
+          const res = await fetch(WEB_APP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
 
-  if(!out || !out.ok){
-    showToast("Save failed 😅");
-    return;
-  }
+          const out = await res.json().catch(()=>null);
 
-} catch(err){
-  console.log("Fetch error:", err);
-  showToast("Save blocked 😅");
-  return;
-}
-
-        var overlay = document.getElementById("finalOverlay");
-        var line = document.getElementById("finalCuteLine");
-
-        var when = "soon";
-        if(day){
-          when = day;
-          if(time){
-            when = when + " at " + time;
+          if(!out || !out.ok){
+            showToast("Save failed 😅");
+            if(line) line.textContent = "Saved? hmm… 😅 (Try again)";
+            return;
           }
+
+          let when = "soon";
+          if(day){
+            when = day;
+            if(time){
+              when = when + " at " + time;
+            }
+          }
+
+          if(line) line.textContent = "Saved 💗 See you " + when + " 😌🌸";
+          showToast("Saved to Sheets 💗");
+
+        } catch(err){
+          showToast("Save blocked 😅");
+          if(line) line.textContent = "Save blocked 😅 (Open in Safari/Chrome)";
+        } finally {
+          clearTimeout(t);
+          letsGoBtn.disabled = false;
         }
-        if(line) line.textContent = "See you " + when + " 😌🌸";
-        if(overlay) overlay.classList.add("show");
-        showToast("Saved to Sheets 💗");
       });
     }
 
+    // Floaties
     const floaties = document.getElementById("floaties");
     const icons = ["💗","❤️","💕","💞","🌸","🌷","☕","🍹","🥂","🛶"];
     for(let i=0;i<26;i++){
